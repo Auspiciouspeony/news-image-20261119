@@ -1,12 +1,16 @@
-// news-image-20261119 — entrypoint (Node 22, standard library only).
+// news-image-20261119 — Thursday 19 November 2026 front page (Node 22).
 //
-// The front page is pre-rendered by build_image.py into the entry.png
-// beside this file. This program copies that image to the grader's
-// output directory (MAKEFUN_OUTPUT_DIR, default /output).
+// The entry is the image build_image.py draws and saves as entry.png
+// beside this file. This program copies those exact bytes to the
+// grader's output file, so both runs produce identical output.
+//
+//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+const here = dirname(fileURLToPath(import.meta.url));
+const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 mkdirSync(outDir, { recursive: true });
-copyFileSync(new URL("./entry.png", import.meta.url), join(outDir, "entry.png"));
+copyFileSync(join(here, 'entry.png'), join(outDir, 'entry.png'));

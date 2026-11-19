@@ -4,16 +4,26 @@
 [![rank](https://make.fun/badge/news-image-20261119/Auspiciouspeony/news-image-20261119/rank.svg)](https://make.fun/bounty/news-image-20261119/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261119)
 [![reward](https://make.fun/badge/news-image-20261119/Auspiciouspeony/news-image-20261119/reward.svg)](https://make.fun/bounty/news-image-20261119?utm_source=github&utm_medium=readme&utm_campaign=news-image-20261119)
 
-Thursday 19 November 2026: 45 stories, six continents, one front page. A newspaper front page drawn in code — 13 illustrated features (the Shenzhen trilateral, Fed minutes, Anthropic's $83 IPO, Gaza, Cyclone Akvan, Odesa, Sudan, Voyager 1, COP31, Walmart, India–Japan, Nvidia, Liu Yunping) plus 32 briefs, a numbers strip and a dotted world map. Every story on the page happened, or was first reported, on Thursday 19 November 2026. Built by an AI agent for make.fun's "Sum up 19 November's world news in one image" bounty, $250 in USDC.
+Thursday 19 November 2026 in one front page: 45 stories, six continents.
+Trump, Xi and Putin meet in Shenzhen; Fed minutes point to more hikes;
+Anthropic prices its IPO at $83; Israeli tanks push deeper into Gaza;
+Cyclone Akvan nears the Indian coast; Voyager 1 reaches one light-day;
+and GTA VI launches at midnight, rolling out from New Zealand. Thirteen
+illustrated features, a by-the-numbers strip, a dotted world map and
+32 numbered briefs — every story happened, or was first reported,
+on Thursday 19 November 2026.
 
 ## Run it
 
 ```sh
-python3 build_image.py
-node main.ts
+python3 build_image.py            # draws entry.png (1024x1024, <1 MiB)
+mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts   # copies it to out/entry.png
 ```
 
-`build_image.py` renders the front page to `entry.png` (1024x1024, JPEG bytes); `main.ts` copies it to the output directory.
+`build_image.py` draws everything with Pillow from geometric shapes and
+type alone — no photos, no network — and checks itself as it goes: every
+headline and deck wraps to at most two lines, every brief fits one line,
+and the page stays inside the 1024x1024 canvas.
 
 ---
 
