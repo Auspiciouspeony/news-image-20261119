@@ -1,78 +1,98 @@
-// news-image-20261119 — Thursday 19 November 2026 front page (Node 22).
+// news-image-20261119 — entry program.
 //
-// The entry is the image build_image.py draws and saves as entry.png
-// beside this file. This program copies those exact bytes to the
-// grader's output file, so both runs produce identical output, then
-// verifies the copy before exiting: it must be a valid JPEG, exactly
-// 1024x1024, under 1 MiB, and byte-identical to the source. A bad copy
-// fails loudly instead of silently grading a broken image.
+// The entry is the finished front page, entry.png, drawn by
+// build_image.py and committed next to this file. This program
+// copies it to the output directory and checks it before the
+// grader sees it: the file must exist, stay under the 1 MiB cap,
+// and measure exactly 1024 by 1024 pixels. A copy is byte for
+// byte identical on every run, so the two grading runs agree.
 //
-//   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
+// Run:  MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { copyFileSync, mkdirSync, readFileSync, statSync } from 'node:fs';
-import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { copyFileSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const EXPECTED_WIDTH = 1024;
-const EXPECTED_HEIGHT = 1024;
-const MAX_BYTES = 1024 * 1024;
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SOURCE = join(HERE, "entry.png");
+const OUT_DIR = process.env.MAKEFUN_OUTPUT_DIR || "out";
+const OUT = join(OUT_DIR, "entry.png");
+const MAX_BYTES = 1048576;
+const WANT_W = 1024;
+const WANT_H = 1024;
 
 function fail(message) {
-  console.error(`main.ts: verification failed: ${message}`);
+  console.error(`main.ts: ${message}`);
   process.exit(1);
 }
 
-// Read a JPEG's width and height from its SOF0/SOF1/SOF2 segment.
-function jpegDimensions(buf) {
-  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) {
-    fail('not a JPEG (missing SOI marker)');
+// Read the width and height of a JPEG from its frame header.
+// Walks the markers until a start-of-frame block gives the size.
+function jpegSize(buf) {
+  if (buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff) {
+    return null;
   }
-  let offset = 2;
-  while (offset + 3 < buf.length) {
-    if (buf[offset] !== 0xff) fail(`bad JPEG marker at offset ${offset}`);
-    const marker = buf[offset + 1];
-    if (marker === 0xd9) break; // EOI: no SOF found
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
-      offset += 2; // standalone marker, no length field
-      continue;
-    }
-    const length = buf.readUInt16BE(offset + 2);
-    if (length < 2 || offset + 2 + length > buf.length) {
-      fail(`truncated JPEG segment at offset ${offset}`);
-    }
-    if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
-      const height = buf.readUInt16BE(offset + 5);
-      const width = buf.readUInt16BE(offset + 7);
+  let off = 2;
+  while (off + 9 < buf.length) {
+    if (buf[off] !== 0xff) return null;
+    const marker = buf[off + 1];
+    const len = buf.readUInt16BE(off + 2);
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4
+        && marker !== 0xc8 && marker !== 0xcc) {
+      const height = buf.readUInt16BE(off + 5);
+      const width = buf.readUInt16BE(off + 7);
       return { width, height };
     }
-    if (marker === 0xda) break; // SOS: scan data follows, SOF must precede it
-    offset += 2 + length;
+    off += 2 + len;
   }
-  fail('no JPEG SOF segment found');
+  return null;
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-const src = join(here, 'entry.png');
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-mkdirSync(outDir, { recursive: true });
-const dest = join(outDir, 'entry.png');
-copyFileSync(src, dest);
+// Read the width and height of a PNG from its IHDR chunk.
+function pngSize(buf) {
+  const magic = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (let i = 0; i < magic.length; i++) {
+    if (buf[i] !== magic[i]) return null;
+  }
+  return {
+    width: buf.readUInt32BE(16),
+    height: buf.readUInt32BE(20),
+  };
+}
 
-const srcBytes = readFileSync(src);
-const outBytes = readFileSync(dest);
-const outSize = statSync(dest).size;
-if (outSize >= MAX_BYTES) {
-  fail(`output is ${outSize} bytes, must be under 1 MiB`);
+// The file is a JPEG in a .png name (or a real PNG): tell them apart
+// by their first bytes, never by the extension.
+function imageSize(buf) {
+  return jpegSize(buf) ?? pngSize(buf);
 }
-if (outBytes.length < 2 || outBytes[outBytes.length - 2] !== 0xff || outBytes[outBytes.length - 1] !== 0xd9) {
-  fail('output is truncated (missing JPEG EOI marker)');
+
+function main() {
+  let buf;
+  try {
+    buf = readFileSync(SOURCE);
+  } catch {
+    fail(`cannot read ${SOURCE}`);
+  }
+  const size = imageSize(buf);
+  if (size === null) {
+    fail("entry.png is neither a JPEG nor a PNG");
+  }
+  if (size.width !== WANT_W || size.height !== WANT_H) {
+    fail(`entry.png is ${size.width}x${size.height}, want 1024x1024`);
+  }
+  if (buf.length >= MAX_BYTES) {
+    fail(`entry.png is ${buf.length} bytes, over the 1 MiB cap`);
+  }
+  mkdirSync(OUT_DIR, { recursive: true });
+  copyFileSync(SOURCE, OUT);
+  const written = statSync(OUT).size;
+  if (written !== buf.length) {
+    fail(`copy is ${written} bytes, source is ${buf.length}`);
+  }
+  console.log(
+    `main.ts: wrote ${OUT} (${size.width}x${size.height}, `
+    + `${written} bytes)`,
+  );
 }
-const { width, height } = jpegDimensions(outBytes);
-if (width !== EXPECTED_WIDTH || height !== EXPECTED_HEIGHT) {
-  fail(`output is ${width}x${height}, expected ${EXPECTED_WIDTH}x${EXPECTED_HEIGHT}`);
-}
-const srcHash = createHash('sha256').update(srcBytes).digest('hex');
-const outHash = createHash('sha256').update(outBytes).digest('hex');
-if (srcHash !== outHash) fail('output bytes differ from entry.png');
-console.log(`main.ts: verified entry.png ${width}x${height}, ${outSize} bytes, sha256 ${outHash.slice(0, 12)}...`);
+
+main();
